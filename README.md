@@ -1,5 +1,5 @@
 # dispatcher-pro
-Система управления заказами с диспетчеризацией (Order Management System with Dispatching)
+Система управления заказами с диспетчеризацией  (Order Management System with Dispatching) Транспортная логистика, отслеживание заказов и транспорта. transport logistics. order tracking, load tracking, cargo tracking
 # 🚚 Диспетчер Pro
 
 Система управления заказами с диспетчеризацией в реальном времени.
@@ -12,6 +12,8 @@
 - 📊 Статистика по диспетчерам
 - 🔐 Авторизация по паролю
 - ☁️ Синхронизация через Google Sheets
+<img width="1427" height="931" alt="image" src="https://github.com/user-attachments/assets/e201002d-beb5-4a3f-a5dc-f96bb4ef7ba4" />
+
 
 ## 🚀 Быстрый старт
 
