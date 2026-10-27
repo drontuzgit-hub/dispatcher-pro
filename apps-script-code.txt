@@ -1,0 +1,238 @@
+const SHEET_ID = '1hxltQm_h6DuDNXcDXw5VlbDfJRCO7kzUVu7rxIbuMig';
+const TELEGRAM_BOT_TOKEN = ''; // заполним на этапе Telegram
+
+const HEADERS = {
+  'Заказы': ['Номер заказа','Маршрут','ФИО клиента','Контакт','Статус','Время выезда','Время доставки','Заметки','Кто добавил','Дата добавления','Telegram клиента'],
+  'Пользователи': ['Имя','Роль','Пароль','Telegram_ID','Активен'],
+  'История': ['Дата','Пользователь','Роль','Номер заказа','Действие','Детали']
+};
+
+// ===== ЗАПУСТИ ОДИН РАЗ вручную: создаёт недостающие листы и проверяет заголовки =====
+function setup() {
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  Object.keys(HEADERS).forEach(name => {
+    let s = ss.getSheetByName(name);
+    if (!s) { s = ss.insertSheet(name); s.appendRow(HEADERS[name]); Logger.log('Создан лист: ' + name); return; }
+    const first = s.getRange(1, 1, 1, HEADERS[name].length).getValues()[0].map(v => String(v).trim());
+    if (first.join('|') !== HEADERS[name].join('|')) Logger.log('ВНИМАНИЕ: заголовки листа "' + name + '" отличаются от ожидаемых: ' + HEADERS[name].join(' | '));
+  });
+  Logger.log('Готово. Листы: ' + ss.getSheets().map(s => s.getName()).join(', '));
+}
+
+// ===== РОУТЕР (GET и POST работают одинаково) =====
+function doGet(e) { return route(e); }
+function doPost(e) { return route(e); }
+
+function route(e) {
+  try {
+    const p = (e && e.parameter) ? e.parameter : {};
+    const actions = { login, getOrders, getHistory, getStats, getUsers, addOrder, updateOrder, deleteOrder, addUser, updateUser };
+    const fn = actions[p.action];
+    if (!fn) return out({ success: false, error: 'Неизвестное действие: ' + p.action });
+    const writes = ['addOrder', 'updateOrder', 'deleteOrder', 'addUser', 'updateUser'];
+    if (writes.indexOf(p.action) >= 0) {
+      const lock = LockService.getScriptLock();
+      lock.waitLock(10000);
+      try { return fn(p); } finally { lock.releaseLock(); }
+    }
+    return fn(p);
+  } catch (err) {
+    return out({ success: false, error: String(err && err.message ? err.message : err) });
+  }
+}
+
+// ===== ХЕЛПЕРЫ =====
+function out(data) {
+  return ContentService.createTextOutput(JSON.stringify(data)).setMimeType(ContentService.MimeType.JSON);
+}
+
+function getSheet(name) {
+  const s = SpreadsheetApp.openById(SHEET_ID).getSheetByName(name);
+  if (!s) throw new Error('Нет листа "' + name + '". Запусти функцию setup.');
+  return s;
+}
+
+function fmt(v, header) {
+  if (v instanceof Date) {
+    const tz = Session.getScriptTimeZone();
+    if (header === 'Время выезда' || header === 'Время доставки') return Utilities.formatDate(v, tz, "yyyy-MM-dd'T'HH:mm");
+    return Utilities.formatDate(v, tz, 'dd.MM.yyyy HH:mm:ss');
+  }
+  return (v === null || v === undefined) ? '' : v;
+}
+
+function readTable(name) {
+  const data = getSheet(name).getDataRange().getValues();
+  const headers = data[0].map(h => String(h).trim());
+  const rows = [];
+  for (let i = 1; i < data.length; i++) {
+    if (data[i].every(c => c === '' || c === null)) continue;
+    const obj = { rowIndex: i + 1 }; // реальный номер строки в листе
+    headers.forEach((h, j) => obj[h] = fmt(data[i][j], h));
+    rows.push(obj);
+  }
+  return rows;
+}
+
+function findOrderRow(sh, orderNumber) {
+  const last = sh.getLastRow();
+  if (last < 2) return -1;
+  const col = sh.getRange(1, 1, last, 1).getValues();
+  const target = String(orderNumber).trim();
+  for (let i = 1; i < col.length; i++) if (String(col[i][0]).trim() === target) return i + 1;
+  return -1;
+}
+
+function colMap(sh) {
+  const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+  const m = {};
+  headers.forEach((h, i) => m[String(h).trim()] = i + 1);
+  return m;
+}
+
+function addHistory(user, role, orderNumber, action, details) {
+  getSheet('История').appendRow([new Date(), user, role, orderNumber, action, details || '']);
+}
+
+// ===== АВТОРИЗАЦИЯ =====
+function login(p) {
+  const u = String(p.username || '').trim();
+  const pw = String(p.password || '').trim();
+  const found = readTable('Пользователи').find(r =>
+    String(r['Имя']).trim() === u &&
+    String(r['Пароль']).trim() === pw &&
+    String(r['Активен']).trim().toLowerCase() === 'да');
+  if (!found) return out({ success: false, error: 'Неверный логин или пароль' });
+  return out({ success: true, user: { name: found['Имя'], role: String(found['Роль']).trim(), telegramId: found['Telegram_ID'] } });
+}
+
+// ===== ЗАКАЗЫ =====
+function getOrders(p) {
+  let rows = readTable('Заказы').filter(r => String(r['Номер заказа']).trim() !== '');
+  if (p.role === 'client') {
+    const n = String(p.orderNumber || '').trim();
+    rows = n ? rows.filter(r => String(r['Номер заказа']).trim() === n) : [];
+    rows = rows.map(r => { const c = Object.assign({}, r); delete c['Кто добавил']; delete c['Telegram клиента']; return c; });
+  }
+  return out({ success: true, orders: rows });
+}
+
+function addOrder(p) {
+  const sh = getSheet('Заказы');
+  if (!String(p.orderNumber || '').trim()) return out({ success: false, error: 'Нет номера заказа' });
+  if (findOrderRow(sh, p.orderNumber) > 0) return out({ success: false, error: 'Заказ с таким номером уже есть' });
+
+  sh.appendRow([p.orderNumber, p.route, p.customerName, p.contact, p.status,
+    p.departureTime || '', p.deliveryTime || '', p.notes || '', p.username, new Date(), p.telegramClient || '']);
+  addHistory(p.username, p.role, p.orderNumber, 'Добавлен заказ', p.route || '');
+  sendTelegram('new_order', { orderNumber: p.orderNumber, route: p.route, customer: p.customerName, dispatcher: p.username });
+  return out({ success: true, message: 'Заказ добавлен' });
+}
+
+function updateOrder(p) {
+  const sh = getSheet('Заказы');
+  const row = findOrderRow(sh, p.orderNumber);
+  if (row < 0) return out({ success: false, error: 'Заказ не найден (возможно, удалён)' });
+
+  const cols = colMap(sh);
+  const fields = {
+    'Маршрут': p.route, 'ФИО клиента': p.customerName, 'Контакт': p.contact, 'Статус': p.status,
+    'Время выезда': p.departureTime, 'Время доставки': p.deliveryTime, 'Заметки': p.notes, 'Telegram клиента': p.telegramClient
+  };
+  const changes = [];
+  let oldStatus = '';
+  Object.keys(fields).forEach(h => {
+    if (!cols[h] || fields[h] === undefined) return;
+    const cell = sh.getRange(row, cols[h]);
+    const oldVal = String(fmt(cell.getValue(), h));
+    const newVal = String(fields[h]);
+    if (h === 'Статус') oldStatus = oldVal;
+    if (oldVal !== newVal) {
+      changes.push(h + ': ' + (oldVal || '—') + ' → ' + (newVal || '—'));
+      cell.setValue(newVal);
+    }
+  });
+
+  if (changes.length) addHistory(p.username, p.role, p.orderNumber, 'Изменён заказ', changes.join('; '));
+  const newStatus = String(p.status);
+  if (oldStatus && oldStatus !== newStatus) {
+    sendTelegram('status_change', { orderNumber: p.orderNumber, oldStatus, newStatus, customer: p.customerName, telegramClient: p.telegramClient || '', editor: p.username });
+    if (newStatus === 'ошибка') sendTelegram('error', { orderNumber: p.orderNumber, customer: p.customerName, editor: p.username, telegramClient: p.telegramClient || '' });
+  }
+  return out({ success: true, message: changes.length ? 'Заказ обновлён' : 'Изменений нет' });
+}
+
+function deleteOrder(p) {
+  const sh = getSheet('Заказы');
+  const row = findOrderRow(sh, p.orderNumber);
+  if (row < 0) return out({ success: false, error: 'Заказ не найден' });
+  addHistory(p.username, p.role, p.orderNumber, 'Удалён заказ', '');
+  sh.deleteRow(row);
+  return out({ success: true, message: 'Заказ удалён' });
+}
+
+// ===== ПОЛЬЗОВАТЕЛИ =====
+function getUsers() {
+  const users = readTable('Пользователи').map(u => { u['Пароль'] = '****'; return u; });
+  return out({ success: true, users });
+}
+
+function addUser(p) {
+  if (!String(p.name || '').trim() || !String(p.password || '').trim()) return out({ success: false, error: 'Нужны имя и пароль' });
+  const exists = readTable('Пользователи').some(u => String(u['Имя']).trim() === String(p.name).trim());
+  if (exists) return out({ success: false, error: 'Такое имя уже есть' });
+  getSheet('Пользователи').appendRow([p.name.trim(), p.role, p.password, p.telegramId || '', 'да']);
+  return out({ success: true, message: 'Пользователь добавлен' });
+}
+
+function updateUser(p) {
+  const sh = getSheet('Пользователи');
+  const row = parseInt(p.rowIndex);
+  if (!row || row < 2 || row > sh.getLastRow()) return out({ success: false, error: 'Неверная строка' });
+  sh.getRange(row, 1).setValue(p.name);
+  sh.getRange(row, 2).setValue(p.role);
+  if (p.password && p.password !== '****') sh.getRange(row, 3).setValue(p.password);
+  sh.getRange(row, 4).setValue(p.telegramId || '');
+  sh.getRange(row, 5).setValue(p.active || 'да');
+  return out({ success: true, message: 'Пользователь обновлён' });
+}
+
+// ===== ИСТОРИЯ И СТАТИСТИКА =====
+function getHistory() {
+  return out({ success: true, history: readTable('История').reverse() });
+}
+
+function getStats() {
+  const rows = readTable('Заказы').filter(r => String(r['Номер заказа']).trim() !== '');
+  const cnt = s => rows.filter(r => String(r['Статус']).trim().toLowerCase() === s).length;
+  const byDispatcher = {};
+  rows.forEach(r => { const d = r['Кто добавил'] || 'неизвестно'; byDispatcher[d] = (byDispatcher[d] || 0) + 1; });
+  return out({ success: true, stats: { total: rows.length, new: cnt('новый'), active: cnt('в пути'), done: cnt('доставлен'), error: cnt('ошибка'), byDispatcher } });
+}
+
+// ===== TELEGRAM (пока выключен, пока токен пустой) =====
+function sendTelegram(type, d) {
+  if (!TELEGRAM_BOT_TOKEN) return;
+  let msg = '';
+  if (type === 'new_order') msg = '📦 Новый заказ\n\nНомер: ' + d.orderNumber + '\nМаршрут: ' + d.route + '\nКлиент: ' + d.customer + '\nДиспетчер: ' + d.dispatcher;
+  if (type === 'status_change') msg = '🔄 Статус изменён\n\nЗаказ: ' + d.orderNumber + '\nКлиент: ' + d.customer + '\nСтатус: ' + d.oldStatus + ' → ' + d.newStatus + '\nИзменил: ' + d.editor;
+  if (type === 'error') msg = '❌ Ошибка доставки\n\nЗаказ: ' + d.orderNumber + '\nКлиент: ' + d.customer + '\nОтветственный: ' + d.editor;
+
+  readTable('Пользователи').forEach(u => {
+    const role = String(u['Роль']).trim();
+    const tg = u['Telegram_ID'];
+    if (!tg || String(u['Активен']).trim().toLowerCase() !== 'да') return;
+    const staff = (role === 'admin' || role === 'manager');
+    if ((type === 'new_order' && staff) || (type === 'status_change' && staff) || type === 'error') sendMessage(tg, msg);
+  });
+  if ((type === 'status_change' || type === 'error') && d.telegramClient) sendMessage(d.telegramClient, msg);
+}
+
+function sendMessage(chatId, text) {
+  try {
+    UrlFetchApp.fetch('https://api.telegram.org/bot' + TELEGRAM_BOT_TOKEN + '/sendMessage', {
+      method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+      payload: JSON.stringify({ chat_id: chatId, text: text })
+    });
+  } catch (e) { Logger.log('Telegram error: ' + e); }
+}
