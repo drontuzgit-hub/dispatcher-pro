@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0f3460">
+<meta name="description" content="Система управления заказами с диспетчеризацией в реальном времени">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Диспетчер Pro">
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect fill='%230f3460' width='180' height='180' rx='40'/><text x='90' y='125' font-size='100' fill='white' text-anchor='middle'>🚚</text></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect fill='%230f3460' width='64' height='64'/><text x='32' y='48' font-size='42' fill='white' text-anchor='middle'>🚚</text></svg>">
+<title>Диспетчер Pro</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Segoe UI',sans-serif;background:#1a1a2e;min-height:100vh;color:#333;}
+
+/* LOGIN */
+.login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#1a1a2e,#16213e,#0f3460);}
+.login-box{background:white;border-radius:16px;padding:40px;width:360px;box-shadow:0 20px 60px rgba(0,0,0,0.4);}
+.login-logo{text-align:center;margin-bottom:30px;}
+.login-logo h1{font-size:28px;color:#0f3460;margin-top:10px;}
+.login-logo p{color:#999;font-size:14px;}
+.login-box input{width:100%;padding:12px 16px;border:2px solid #eee;border-radius:8px;font-size:15px;margin-bottom:15px;transition:border-color 0.3s;}
+.login-box input:focus{outline:none;border-color:#0f3460;}
+.login-btn{width:100%;padding:14px;background:linear-gradient(135deg,#0f3460,#533483);color:white;border:none;border-radius:8px;font-size:16px;font-weight:600;cursor:pointer;transition:all 0.3s;}
+.login-btn:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(15,52,96,0.4);}
+.login-error{color:#e74c3c;font-size:13px;text-align:center;margin-top:10px;display:none;}
+
+/* APP */
+.app{display:none;flex-direction:column;min-height:100vh;background:#f0f2f5;}
+
+/* HEADER */
+.header{background:linear-gradient(135deg,#0f3460,#533483);color:white;padding:0 24px;height:60px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 10px rgba(0,0,0,0.2);}
+.header-left{display:flex;align-items:center;gap:16px;}
+.header-logo{font-size:20px;font-weight:700;}
+.user-badge{background:rgba(255,255,255,0.2);padding:6px 14px;border-radius:20px;font-size:13px;}
+.role-badge{padding:4px 10px;border-radius:12px;font-size:12px;font-weight:600;}
+.role-admin{background:#f39c12;}
+.role-dispatcher{background:#27ae60;}
+.role-manager{background:#2980b9;}
+.role-client{background:#8e44ad;}
+.header-right{display:flex;align-items:center;gap:12px;}
+.logout-btn{background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:white;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px;transition:all 0.2s;}
+.logout-btn:hover{background:rgba(255,255,255,0.25);}
+
+/* NAV */
+.nav{background:white;border-bottom:1px solid #e0e0e0;padding:0 24px;display:flex;gap:4px;overflow-x:auto;}
+.nav-btn{padding:14px 20px;border:none;background:none;cursor:pointer;font-size:14px;color:#666;border-bottom:3px solid transparent;white-space:nowrap;transition:all 0.2s;}
+.nav-btn:hover{color:#0f3460;}
+.nav-btn.active{color:#0f3460;border-bottom-color:#0f3460;font-weight:600;}
+
+/* CONTENT */
+.content{flex:1;padding:24px;max-width:1400px;margin:0 auto;width:100%;}
+
+/* CARDS */
+.card{background:white;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08);padding:24px;margin-bottom:20px;}
+.card-title{font-size:18px;font-weight:600;color:#0f3460;margin-bottom:20px;padding-bottom:12px;border-bottom:2px solid #f0f2f5;}
+
+/* STATS */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:24px;}
+.stat-card{background:white;border-radius:12px;padding:20px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.08);}
+.stat-number{font-size:36px;font-weight:700;margin-bottom:4px;}
+.stat-label{font-size:13px;color:#999;}
+.stat-total{color:#0f3460;}
+.stat-new{color:#3498db;}
+.stat-active{color:#f39c12;}
+.stat-done{color:#27ae60;}
+.stat-error{color:#e74c3c;}
+
+/* FORM */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.form-group{margin-bottom:0;}
+.form-group.full{grid-column:1/-1;}
+label{display:block;margin-bottom:6px;color:#555;font-weight:500;font-size:13px;}
+input,select,textarea{width:100%;padding:10px 14px;border:2px solid #eee;border-radius:8px;font-size:14px;font-family:inherit;transition:border-color 0.3s;}
+input:focus,select:focus,textarea:focus{outline:none;border-color:#0f3460;}
+textarea{resize:vertical;min-height:80px;}
+.btn{padding:11px 20px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.3s;}
+.btn-primary{background:linear-gradient(135deg,#0f3460,#533483);color:white;}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(15,52,96,0.3);}
+.btn-primary:disabled{opacity:0.6;transform:none;cursor:not-allowed;}
+.btn-success{background:#27ae60;color:white;}
+.btn-danger{background:#e74c3c;color:white;}
+.btn-warning{background:#f39c12;color:white;}
+.btn-secondary{background:#f0f2f5;color:#666;}
+.btn-sm{padding:6px 12px;font-size:12px;}
+.form-actions{display:flex;gap:10px;margin-top:20px;}
+
+/* TABLE */
+.table-wrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th{background:#f8f9fa;padding:12px 14px;text-align:left;color:#666;font-weight:600;border-bottom:2px solid #e0e0e0;white-space:nowrap;}
+td{padding:12px 14px;border-bottom:1px solid #f0f0f0;vertical-align:middle;}
+tr:hover td{background:#fafbfc;}
+.order-num{font-weight:700;color:#0f3460;}
+.customer-name{font-weight:600;color:#333;}
+.customer-contact{font-size:12px;color:#999;}
+.time-info{font-size:12px;color:#666;line-height:1.6;}
+.notes-cell{max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#999;font-size:12px;}
+.who-added{font-size:12px;color:#999;}
+.actions{display:flex;gap:6px;white-space:nowrap;}
+
+/* STATUS */
+.status{display:inline-block;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;text-align:center;white-space:nowrap;}
+.status-новый{background:#dbeafe;color:#1d4ed8;}
+.status-в.пути,.status-в_пути{background:#fef3c7;color:#d97706;}
+.status-доставлен{background:#d1fae5;color:#065f46;}
+.status-ошибка{background:#fee2e2;color:#dc2626;}
+
+/* FILTER */
+.filters{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;}
+.filters select,.filters input{padding:9px 14px;border:2px solid #eee;border-radius:8px;font-size:13px;flex:1;min-width:140px;}
+.filters select:focus,.filters input:focus{outline:none;border-color:#0f3460;}
+
+/* HISTORY */
+.history-item{padding:14px;border-left:4px solid #0f3460;background:#f8f9fa;border-radius:0 8px 8px 0;margin-bottom:10px;}
+.history-date{font-size:12px;color:#999;margin-bottom:4px;}
+.history-action{font-weight:600;color:#333;}
+.history-detail{font-size:13px;color:#666;margin-top:4px;}
+
+/* USERS */
+.users-grid{display:grid;gap:12px;}
+.user-item{display:flex;align-items:center;gap:16px;padding:16px;background:#f8f9fa;border-radius:10px;}
+.user-avatar{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;background:white;box-shadow:0 2px 8px rgba(0,0,0,0.1);}
+.user-info{flex:1;}
+.user-name{font-weight:600;color:#333;}
+.user-role{font-size:12px;color:#999;}
+.user-status{font-size:12px;}
+.status-active{color:#27ae60;}
+.status-inactive{color:#e74c3c;}
+
+/* MODAL */
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;}
+.modal.open{display:flex;}
+.modal-box{background:white;border-radius:16px;padding:30px;width:90%;max-width:560px;max-height:90vh;overflow-y:auto;}
+.modal-title{font-size:20px;font-weight:700;color:#0f3460;margin-bottom:20px;}
+.modal-actions{display:flex;gap:10px;margin-top:20px;justify-content:flex-end;}
+
+/* EMPTY */
+.empty{text-align:center;padding:60px 20px;color:#999;}
+.empty-icon{font-size:56px;margin-bottom:12px;}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;padding:14px 20px;border-radius:10px;color:white;font-weight:500;z-index:9999;transform:translateY(100px);opacity:0;transition:all 0.3s;max-width:360px;}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast-success{background:#27ae60;}
+.toast-error{background:#e74c3c;}
+.toast-info{background:#0f3460;}
+
+/* CLIENT */
+.client-search{text-align:center;padding:40px 20px;}
+.client-search h2{color:#0f3460;margin-bottom:20px;}
+.client-search-box{display:flex;gap:10px;max-width:400px;margin:0 auto 30px;}
+.order-detail{background:#f8f9fa;border-radius:12px;padding:20px;margin-bottom:16px;}
+.order-detail-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;}
+.order-detail-num{font-size:22px;font-weight:700;color:#0f3460;}
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.detail-item label{font-size:12px;color:#999;margin-bottom:2px;}
+.detail-item p{font-weight:500;color:#333;}
+
+@media(max-width:768px){
+  .form-grid{grid-template-columns:1fr;}
+  .form-group.full{grid-column:1;}
+  .stats-grid{grid-template-columns:repeat(2,1fr);}
+  .content{padding:16px;}
+  .detail-grid{grid-template-columns:1fr;}
+  .client-search-box{flex-direction:column;}
+}
+</style>
+</head>
+<body>
+
+<!-- ЭКРАН ВХОДА -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">
+      <div style="font-size:48px;">🚚</div>
+      <h1>Диспетчер Pro</h1>
+      <p>Система управления заказами</p>
+    </div>
+    <input type="text" id="loginUsername" placeholder="Имя пользователя" autocomplete="off">
+    <input type="password" id="loginPassword" placeholder="Пароль">
+    <button class="login-btn" onclick="doLogin()">Войти</button>
+    <div class="login-error" id="loginError">Неверный логин или пароль</div>
+  </div>
+</div>
+
+<!-- ПРИЛОЖЕНИЕ -->
+<div class="app" id="app">
+  <div class="header">
+    <div class="header-left">
+      <div class="header-logo">🚚 Диспетчер Pro</div>
+      <div class="user-badge" id="headerUser"></div>
+      <span class="role-badge" id="headerRole"></span>
+    </div>
+    <div class="header-right">
+      <button class="logout-btn" onclick="doLogout()">Выйти</button>
+    </div>
+  </div>
+
+  <div class="nav" id="mainNav"></div>
+
+  <div class="content">
+    <!-- СТРАНИЦА: СТАТИСТИКА -->
+    <div id="page-stats" class="page" style="display:none;">
+      <div class="stats-grid" id="statsGrid"></div>
+      <div class="card">
+        <div class="card-title">📊 По диспетчерам</div>
+        <div id="statsByDispatcher"></div>
+      </div>
+    </div>
+
+    <!-- СТРАНИЦА: ЗАКАЗЫ -->
+    <div id="page-orders" class="page" style="display:none;">
+      <div class="card" id="addOrderCard" style="display:none;">
+        <div class="card-title">➕ Новый заказ</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Номер заказа *</label>
+            <input type="text" id="fOrderNum" placeholder="ЗАК-001">
+          </div>
+          <div class="form-group">
+            <label>Статус *</label>
+            <select id="fStatus">
+              <option value="новый">📌 Новый</option>
+              <option value="в пути">🚗 В пути</option>
+              <option value="доставлен">✅ Доставлен</option>
+              <option value="ошибка">❌ Ошибка</option>
+            </select>
+          </div>
+          <div class="form-group full">
+            <label>Маршрут (Погрузка → Выгрузка) *</label>
+            <input type="text" id="fRoute" placeholder="Алматы → Шымкент">
+          </div>
+          <div class="form-group">
+            <label>ФИО клиента *</label>
+            <input type="text" id="fCustomer" placeholder="Полное имя">
+          </div>
+          <div class="form-group">
+            <label>Контакт клиента *</label>
+            <input type="text" id="fContact" placeholder="Телефон или Email">
+          </div>
+          <div class="form-group">
+            <label>Telegram клиента (ID)</label>
+            <input type="text" id="fTelegramClient" placeholder="Например: 123456789">
+          </div>
+          <div class="form-group">
+            <label>Время выезда</label>
+            <input type="datetime-local" id="fDeparture">
+          </div>
+          <div class="form-group">
+            <label>Время доставки</label>
+            <input type="datetime-local" id="fDelivery">
+          </div>
+          <div class="form-group full">
+            <label>Заметки</label>
+            <textarea id="fNotes" placeholder="Дополнительная информация..."></textarea>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" id="submitOrderBtn" onclick="submitOrder()">➕ Добавить заказ</button>
+          <button class="btn btn-secondary" onclick="clearOrderForm()">🔄 Очистить</button>
+        </div>
+        <div id="orderFormStatus" style="margin-top:10px;font-size:13px;"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📋 Список заказов</div>
+        <div class="filters">
+          <select id="filterStatus" onchange="renderOrders()">
+            <option value="">Все статусы</option>
+            <option value="новый">Новый</option>
+            <option value="в пути">В пути</option>
+            <option value="доставлен">Доставлен</option>
+            <option value="ошибка">Ошибка</option>
+          </select>
+          <input type="text" id="filterSearch" placeholder="🔍 Поиск..." oninput="renderOrders()">
+          <button class="btn btn-secondary" onclick="loadOrders()">🔄 Обновить</button>
+        </div>
+        <div class="table-wrap">
+          <div id="ordersTable"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- СТРАНИЦА: ИСТОРИЯ -->
+    <div id="page-history" class="page" style="display:none;">
+      <div class="card">
+        <div class="card-title">📜 История изменений</div>
+        <div id="historyList"></div>
+      </div>
+    </div>
+
+    <!-- СТРАНИЦА: ПОЛЬЗОВАТЕЛИ -->
+    <div id="page-users" class="page" style="display:none;">
+      <div class="card">
+        <div class="card-title" id="usersPageTitle">👥 Команда</div>
+        <div id="usersList"></div>
+      </div>
+    </div>
+
+    <!-- СТРАНИЦА: КЛИЕНТ -->
+    <div id="page-client" class="page" style="display:none;">
+      <div class="card client-search">
+        <h2>🔍 Найти мой заказ</h2>
+        <div class="client-search-box">
+          <input type="text" id="clientOrderNum" placeholder="Введите номер заказа">
+          <button class="btn btn-primary" onclick="searchClientOrder()">Найти</button>
+        </div>
+        <div id="clientResults"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- МОДАЛКА: РЕДАКТИРОВАТЬ ЗАКАЗ -->
+<div class="modal" id="editModal">
+  <div class="modal-box">
+    <div class="modal-title">✏️ Редактировать заказ</div>
+    <input type="hidden" id="editRowIndex">
+    <input type="hidden" id="editOldStatus">
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Номер заказа</label>
+        <input type="text" id="editOrderNum" readonly style="background:#f5f5f5;">
+      </div>
+      <div class="form-group">
+        <label>Статус *</label>
+        <select id="editStatus">
+          <option value="новый">📌 Новый</option>
+          <option value="в пути">🚗 В пути</option>
+          <option value="доставлен">✅ Доставлен</option>
+          <option value="ошибка">❌ Ошибка</option>
+        </select>
+      </div>
+      <div class="form-group full">
+        <label>Маршрут *</label>
+        <input type="text" id="editRoute">
+      </div>
+      <div class="form-group">
+        <label>ФИО клиента *</label>
+        <input type="text" id="editCustomer">
+      </div>
+      <div class="form-group">
+        <label>Контакт *</label>
+        <input type="text" id="editContact">
+      </div>
+      <div class="form-group">
+        <label>Telegram клиента (ID)</label>
+        <input type="text" id="editTelegramClient">
+      </div>
+      <div class="form-group">
+        <label>Время выезда</label>
+        <input type="datetime-local" id="editDeparture">
+      </div>
+      <div class="form-group">
+        <label>Время доставки</label>
+        <input type="datetime-local" id="editDelivery">
+      </div>
+      <div class="form-group full">
+        <label>Заметки</label>
+        <textarea id="editNotes"></textarea>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('editModal')">Отмена</button>
+      <button class="btn btn-primary" onclick="saveEdit()">💾 Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- МОДАЛКА: ПОЛЬЗОВАТЕЛЬ -->
+<div class="modal" id="userModal">
+  <div class="modal-box">
+    <div class="modal-title" id="userModalTitle">➕ Новый пользователь</div>
+    <input type="hidden" id="userRowIndex">
+    <div class="form-grid">
+      <div class="form-group full">
+        <label>Имя пользователя *</label>
+        <input type="text" id="userName" placeholder="Например: Иванов">
+      </div>
+      <div class="form-group">
+        <label>Роль *</label>
+        <select id="userRole">
+          <option value="dispatcher">👨‍💼 Диспетчер</option>
+          <option value="manager">📋 Менеджер</option>
+          <option value="admin">👑 Руководитель</option>
+          <option value="client">👤 Клиент</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Статус</label>
+        <select id="userActive">
+          <option value="да">✅ Активен</option>
+          <option value="нет">❌ Неактивен</option>
+        </select>
+      </div>
+      <div class="form-group full">
+        <label>Пароль *</label>
+        <input type="text" id="userPassword" placeholder="Минимум 6 символов">
+      </div>
+      <div class="form-group full">
+        <label>Telegram ID (необязательно)</label>
+        <input type="text" id="userTelegram" placeholder="Например: 123456789">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('userModal')">Отмена</button>
+      <button class="btn btn-primary" onclick="saveUser()">💾 Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxOcxJb4AR1YtpPKfcJbLycSXKjuREZPMrbO2hAuUGXDn3hEQrXYxcFZeI6O9bFYCMG/exec';
+
+let currentUser = null;
+let allOrders = [];
+
+// ===== АВТОРИЗАЦИЯ =====
+function doLogin() {
+  const username = document.getElementById('loginUsername').value.trim();
+  const password = document.getElementById('loginPassword').value.trim();
+  if (!username || !password) { showLoginError('Заполни оба поля'); return; }
+
+  const btn = document.querySelector('.login-btn');
+  btn.textContent = 'Вхожу...';
+  btn.disabled = true;
+
+  post({ action: 'login', username, password })
+    .then(data => {
+      if (data.success) {
+        currentUser = data.user;
+        localStorage.setItem('dispUser', JSON.stringify(currentUser));
+        startApp();
+      } else {
+        showLoginError(data.error || 'Неверный логин или пароль');
+      }
+    })
+    .catch(() => showLoginError('Ошибка подключения'))
+    .finally(() => { btn.textContent = 'Войти'; btn.disabled = false; });
+}
+
+function showLoginError(msg) {
+  const el = document.getElementById('loginError');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function doLogout() {
+  currentUser = null;
+  localStorage.removeItem('dispUser');
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('loginPassword').value = '';
+  document.getElementById('loginError').style.display = 'none';
+}
+
+document.getElementById('loginPassword').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
+});
+
+// ===== СТАРТ =====
+function startApp() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+
+  // Хедер
+  document.getElementById('headerUser').textContent = '👤 ' + currentUser.name;
+  const roleLabels = { admin: '👑 Руководитель', dispatcher: '👨‍💼 Диспетчер', manager: '📋 Менеджер', client: '👤 Клиент' };
+  const roleClasses = { admin: 'role-admin', dispatcher: 'role-dispatcher', manager: 'role-manager', client: 'role-client' };
+  const roleEl = document.getElementById('headerRole');
+  roleEl.textContent = roleLabels[currentUser.role] || currentUser.role;
+  roleEl.className = 'role-badge ' + (roleClasses[currentUser.role] || '');
+
+  // Навигация по роли
+  const nav = document.getElementById('mainNav');
+  nav.innerHTML = '';
+
+  const pages = getRolePages();
+  pages.forEach((p, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'nav-btn' + (i === 0 ? ' active' : '');
+    btn.textContent = p.label;
+    btn.onclick = () => showPage(p.id, btn);
+    nav.appendChild(btn);
+  });
+
+  showPage(pages[0].id);
+  if (currentUser.role !== 'client') loadOrders();
+}
+
+function getRolePages() {
+  const role = currentUser.role;
+  if (role === 'admin') return [
+    { id: 'stats', label: '📊 Статистика' },
+    { id: 'orders', label: '📋 Заказы' },
+    { id: 'history', label: '📜 История' },
+    { id: 'users', label: '👥 Пользователи' }
+  ];
+  if (role === 'dispatcher') return [
+    { id: 'orders', label: '📋 Заказы' },
+    { id: 'history', label: '📜 История' },
+    { id: 'users', label: '👥 Команда' }
+  ];
+  if (role === 'manager') return [
+    { id: 'orders', label: '📋 Заказы' },
+    { id: 'stats', label: '📊 Статистика' },
+    { id: 'users', label: '👥 Команда' }
+  ];
+  if (role === 'client') return [
+    { id: 'client', label: '🔍 Мои заказы' }
+  ];
+  return [];
+}
+
+function showPage(id, btn) {
+  document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  const page = document.getElementById('page-' + id);
+  if (page) page.style.display = 'block';
+  if (btn) btn.classList.add('active');
+
+  if (id === 'stats') loadStats();
+  if (id === 'history') loadHistory();
+  if (id === 'users') {
+    const title = document.getElementById('usersPageTitle');
+    title.textContent = currentUser.role === 'admin' ? '👥 Управление пользователями' : '👥 Команда';
+    loadUsers();
+  }
+  if (id === 'orders') {
+    const addCard = document.getElementById('addOrderCard');
+    addCard.style.display = (currentUser.role === 'admin' || currentUser.role === 'dispatcher') ? 'block' : 'none';
+  }
+}
+
+// ===== ЗАКАЗЫ =====
+function loadOrders() {
+  get({ action: 'getOrders', role: currentUser.role, username: currentUser.name })
+    .then(data => {
+      if (data.success) { allOrders = data.orders; renderOrders(); }
+    });
+}
+
+function renderOrders() {
+  const filterStatus = document.getElementById('filterStatus').value;
+  const search = document.getElementById('filterSearch').value.toLowerCase();
+
+  let orders = allOrders.filter(o => {
+    if (filterStatus && o['Статус'] !== filterStatus) return false;
+    if (search) {
+      const str = [o['Номер заказа'], o['Маршрут'], o['ФИО клиента'], o['Контакт']].join(' ').toLowerCase();
+      if (!str.includes(search)) return false;
+    }
+    return true;
+  });
+
+  const canEdit = currentUser.role === 'admin' || currentUser.role === 'dispatcher';
+  const canDelete = currentUser.role === 'admin';
+
+  if (!orders.length) {
+    document.getElementById('ordersTable').innerHTML = '<div class="empty"><div class="empty-icon">📭</div><p>Заказов не найдено</p></div>';
+    return;
+  }
+
+  const rows = orders.map(o => {
+    const status = o['Статус'] || '-';
+    const statusClass = 'status status-' + status.replace(' ', '_');
+    const dep = o['Время выезда'] ? '🚀 ' + String(o['Время выезда']).replace('T',' ') : '';
+    const del = o['Время доставки'] ? '🏁 ' + String(o['Время доставки']).replace('T',' ') : '';
+
+    let actions = '';
+    if (canEdit) actions += `<button class="btn btn-warning btn-sm" onclick="openEdit(${o.rowIndex})">✏️</button>`;
+    if (canDelete) actions += `<button class="btn btn-danger btn-sm" onclick="deleteOrder(${o.rowIndex}, '${o['Номер заказа']}')">🗑️</button>`;
+
+    return `<tr>
+      <td class="order-num">${o['Номер заказа'] || '-'}</td>
+      <td>${o['Маршрут'] || '-'}</td>
+      <td>
+        <div class="customer-name">${o['ФИО клиента'] || '-'}</div>
+        <div class="customer-contact">${o['Контакт'] || ''}</div>
+      </td>
+      <td><span class="${statusClass}">${status}</span></td>
+      <td class="time-info">${dep}<br>${del}</td>
+      <td class="notes-cell" title="${o['Заметки'] || ''}">${o['Заметки'] || '—'}</td>
+      <td class="who-added">${o['Кто добавил'] || ''}</td>
+      ${actions ? `<td class="actions">${actions}</td>` : ''}
+    </tr>`;
+  }).join('');
+
+  const actionsHeader = canEdit ? '<th>Действия</th>' : '';
+  document.getElementById('ordersTable').innerHTML = `
+    <table>
+      <thead><tr>
+        <th>Номер</th><th>Маршрут</th><th>Клиент</th><th>Статус</th><th>Время</th><th>Заметки</th><th>Диспетчер</th>${actionsHeader}
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+function submitOrder() {
+  const num = document.getElementById('fOrderNum').value.trim();
+  const route = document.getElementById('fRoute').value.trim();
+  const customer = document.getElementById('fCustomer').value.trim();
+  const contact = document.getElementById('fContact').value.trim();
+
+  if (!num || !route || !customer || !contact) { showToast('Заполни обязательные поля', 'error'); return; }
+
+  const btn = document.getElementById('submitOrderBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Отправляю...';
+
+  post({
+    action: 'addOrder',
+    orderNumber: num,
+    route,
+    customerName: customer,
+    contact,
+    status: document.getElementById('fStatus').value,
+    departureTime: document.getElementById('fDeparture').value,
+    deliveryTime: document.getElementById('fDelivery').value,
+    notes: document.getElementById('fNotes').value,
+    telegramClient: document.getElementById('fTelegramClient').value,
+    username: currentUser.name,
+    role: currentUser.role
+  }).then(data => {
+    if (data.success) {
+      showToast('✅ Заказ добавлен!', 'success');
+      clearOrderForm();
+      loadOrders();
+    } else {
+      showToast('❌ ' + (data.error || 'Ошибка'), 'error');
+    }
+  }).catch(() => showToast('❌ Ошибка сети', 'error'))
+  .finally(() => { btn.disabled = false; btn.textContent = '➕ Добавить заказ'; });
+}
+
+function clearOrderForm() {
+  ['fOrderNum','fRoute','fCustomer','fContact','fTelegramClient','fDeparture','fDelivery','fNotes'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('fStatus').value = 'новый';
+}
+
+function openEdit(rowIndex) {
+  const order = allOrders.find(o => o.rowIndex === rowIndex);
+  if (!order) return;
+
+  document.getElementById('editRowIndex').value = rowIndex;
+  document.getElementById('editOrderNum').value = order['Номер заказа'] || '';
+  document.getElementById('editOldStatus').value = order['Статус'] || '';
+  document.getElementById('editStatus').value = order['Статус'] || 'новый';
+  document.getElementById('editRoute').value = order['Маршрут'] || '';
+  document.getElementById('editCustomer').value = order['ФИО клиента'] || '';
+  document.getElementById('editContact').value = order['Контакт'] || '';
+  document.getElementById('editTelegramClient').value = order['Telegram клиента'] || '';
+  document.getElementById('editDeparture').value = order['Время выезда'] || '';
+  document.getElementById('editDelivery').value = order['Время доставки'] || '';
+  document.getElementById('editNotes').value = order['Заметки'] || '';
+  document.getElementById('editModal').classList.add('open');
+}
+
+function saveEdit() {
+  post({
+    action: 'updateOrder',
+    rowIndex: document.getElementById('editRowIndex').value,
+    orderNumber: document.getElementById('editOrderNum').value,
+    oldStatus: document.getElementById('editOldStatus').value,
+    status: document.getElementById('editStatus').value,
+    route: document.getElementById('editRoute').value,
+    customerName: document.getElementById('editCustomer').value,
+    contact: document.getElementById('editContact').value,
+    telegramClient: document.getElementById('editTelegramClient').value,
+    departureTime: document.getElementById('editDeparture').value,
+    deliveryTime: document.getElementById('editDelivery').value,
+    notes: document.getElementById('editNotes').value,
+    username: currentUser.name,
+    role: currentUser.role
+  }).then(data => {
+    if (data.success) {
+      showToast('✅ Заказ обновлён!', 'success');
+      closeModal('editModal');
+      loadOrders();
+    } else {
+      showToast('❌ ' + (data.error || 'Ошибка'), 'error');
+    }
+  }).catch(() => showToast('❌ Ошибка сети', 'error'));
+}
+
+function deleteOrder(rowIndex, orderNum) {
+  if (!confirm(`Удалить заказ ${orderNum}?`)) return;
+  post({
+    action: 'deleteOrder',
+    rowIndex,
+    orderNumber: orderNum,
+    username: currentUser.name,
+    role: currentUser.role
+  }).then(data => {
+    if (data.success) { showToast('🗑️ Заказ удалён', 'info'); loadOrders(); }
+    else showToast('❌ Ошибка', 'error');
+  });
+}
+
+// ===== СТАТИСТИКА =====
+function loadStats() {
+  get({ action: 'getStats' }).then(data => {
+    if (!data.success) return;
+    const s = data.stats;
+    document.getElementById('statsGrid').innerHTML = `
+      <div class="stat-card"><div class="stat-number stat-total">${s.total}</div><div class="stat-label">Всего заказов</div></div>
+      <div class="stat-card"><div class="stat-number stat-new">${s.new}</div><div class="stat-label">Новых</div></div>
+      <div class="stat-card"><div class="stat-number stat-active">${s.active}</div><div class="stat-label">В пути</div></div>
+      <div class="stat-card"><div class="stat-number stat-done">${s.done}</div><div class="stat-label">Доставлено</div></div>
+      <div class="stat-card"><div class="stat-number stat-error">${s.error}</div><div class="stat-label">Ошибок</div></div>
+    `;
+
+    const byDisp = s.byDispatcher || {};
+    const dispHtml = Object.entries(byDisp).map(([name, count]) => `
+      <div style="display:flex;align-items:center;gap:12px;padding:12px;background:#f8f9fa;border-radius:8px;margin-bottom:8px;">
+        <span style="font-size:24px;">👤</span>
+        <div style="flex:1;">
+          <div style="font-weight:600;">${name}</div>
+          <div style="font-size:12px;color:#999;">${count} заказов</div>
+        </div>
+        <div style="font-size:24px;font-weight:700;color:#0f3460;">${count}</div>
+      </div>
+    `).join('');
+    document.getElementById('statsByDispatcher').innerHTML = dispHtml || '<p style="color:#999;">Нет данных</p>';
+  });
+}
+
+// ===== ИСТОРИЯ =====
+function loadHistory() {
+  get({ action: 'getHistory' }).then(data => {
+    if (!data.success) return;
+    const icons = { 'Добавлен заказ': '📦', 'Изменён заказ': '✏️', 'Удалён заказ': '🗑️' };
+    const html = data.history.map(h => `
+      <div class="history-item">
+        <div class="history-date">${h['Дата']} • ${h['Пользователь']} (${h['Роль']})</div>
+        <div class="history-action">${icons[h['Действие']] || '📌'} ${h['Действие']} — Заказ: ${h['Номер заказа']}</div>
+        ${h['Детали'] ? `<div class="history-detail">${h['Детали']}</div>` : ''}
+      </div>
+    `).join('');
+    document.getElementById('historyList').innerHTML = html || '<div class="empty"><div class="empty-icon">📭</div><p>История пуста</p></div>';
+  });
+}
+
+// ===== ПОЛЬЗОВАТЕЛИ =====
+function loadUsers() {
+  get({ action: 'getUsers' }).then(data => {
+    if (!data.success) return;
+    window._users = data.users;
+    renderUsers('all');
+  });
+}
+
+function renderUsers(filterRole) {
+  const data = window._users || [];
+  const isAdmin = currentUser.role === 'admin';
+  const roleLabels = { admin: '👑 Руководитель', dispatcher: '👨‍💼 Диспетчер', manager: '📋 Менеджер', client: '👤 Клиент' };
+  const roleIcons  = { admin: '👑', dispatcher: '👨‍💼', manager: '📋', client: '👤' };
+  const roleBgColors = { admin: '#fff3cd', dispatcher: '#d1fae5', manager: '#dbeafe', client: '#f3e8ff' };
+
+  // Группируем по ролям
+  const groups = [
+    { key: 'admin',      label: '👑 Руководители' },
+    { key: 'dispatcher', label: '👨‍💼 Диспетчеры' },
+    { key: 'manager',    label: '📋 Менеджеры' },
+    { key: 'client',     label: '👤 Клиенты' }
+  ];
+
+  const activeFilter = filterRole || 'all';
+
+  // Кнопки фильтра
+  const filterBtns = `
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;">
+      ${[{key:'all',label:'Все'}, ...groups].map(g => `
+        <button onclick="renderUsers('${g.key}')"
+          style="padding:7px 16px;border-radius:20px;border:2px solid ${activeFilter===g.key?'#0f3460':'#e0e0e0'};
+          background:${activeFilter===g.key?'#0f3460':'white'};color:${activeFilter===g.key?'white':'#666'};
+          font-size:13px;font-weight:600;cursor:pointer;">
+          ${g.label}
+        </button>
+      `).join('')}
+    </div>`;
+
+  // Фильтруем пользователей
+  const filtered = activeFilter === 'all' ? data : data.filter(u => u['Роль'] === activeFilter);
+
+  // Группированный вывод
+  let html = '';
+  if (activeFilter === 'all') {
+    groups.forEach(g => {
+      const groupUsers = data.filter(u => u['Роль'] === g.key);
+      if (!groupUsers.length) return;
+      html += `
+        <div style="margin-bottom:24px;">
+          <div style="font-size:15px;font-weight:700;color:#0f3460;margin-bottom:12px;padding:10px 14px;
+            background:${roleBgColors[g.key]||'#f8f9fa'};border-radius:8px;">
+            ${g.label} <span style="font-size:13px;color:#999;font-weight:400;">(${groupUsers.length})</span>
+          </div>
+          <div class="users-grid">${groupUsers.map(u => userCard(u, isAdmin, roleLabels, roleIcons)).join('')}</div>
+        </div>`;
+    });
+  } else {
+    html = `<div class="users-grid">${filtered.map(u => userCard(u, isAdmin, roleLabels, roleIcons)).join('')}</div>`;
+  }
+
+  if (!filtered.length && activeFilter !== 'all') {
+    html = '<div class="empty"><div class="empty-icon">👥</div><p>Нет пользователей в этой категории</p></div>';
+  }
+
+  const addBtn = isAdmin ? `<button class="btn btn-primary" onclick="openAddUserModal()" style="margin-bottom:16px;">➕ Добавить пользователя</button>` : '';
+
+  document.getElementById('usersList').innerHTML = filterBtns + addBtn + html;
+}
+
+function userCard(u, isAdmin, roleLabels, roleIcons) {
+  const editBtn = isAdmin ? `<button class="btn btn-warning btn-sm" onclick="openEditUser(${u.rowIndex})">✏️</button>` : '';
+  return `
+    <div class="user-item">
+      <div class="user-avatar">${roleIcons[u['Роль']] || '👤'}</div>
+      <div class="user-info">
+        <div class="user-name">${u['Имя']}</div>
+        <div class="user-role">${roleLabels[u['Роль']] || u['Роль']}</div>
+      </div>
+      <div class="${u['Активен'] === 'да' ? 'status-active' : 'status-inactive'} user-status">
+        ${u['Активен'] === 'да' ? '✅ Активен' : '❌ Неактивен'}
+      </div>
+      ${editBtn}
+    </div>`;
+}
+
+function openAddUserModal() {
+  document.getElementById('userModalTitle').textContent = '➕ Новый пользователь';
+  document.getElementById('userRowIndex').value = '';
+  document.getElementById('userName').value = '';
+  document.getElementById('userRole').value = 'dispatcher';
+  document.getElementById('userPassword').value = '';
+  document.getElementById('userTelegram').value = '';
+  document.getElementById('userActive').value = 'да';
+  document.getElementById('userModal').classList.add('open');
+}
+
+function openEditUser(rowIndex) {
+  const user = window._users.find(u => u.rowIndex === rowIndex);
+  if (!user) return;
+  document.getElementById('userModalTitle').textContent = '✏️ Редактировать пользователя';
+  document.getElementById('userRowIndex').value = rowIndex;
+  document.getElementById('userName').value = user['Имя'] || '';
+  document.getElementById('userRole').value = user['Роль'] || 'dispatcher';
+  document.getElementById('userPassword').value = '';
+  document.getElementById('userTelegram').value = user['Telegram_ID'] || '';
+  document.getElementById('userActive').value = user['Активен'] || 'да';
+  document.getElementById('userModal').classList.add('open');
+}
+
+function saveUser() {
+  const rowIndex = document.getElementById('userRowIndex').value;
+  const params = {
+    name: document.getElementById('userName').value.trim(),
+    role: document.getElementById('userRole').value,
+    password: document.getElementById('userPassword').value,
+    telegramId: document.getElementById('userTelegram').value,
+    active: document.getElementById('userActive').value
+  };
+
+  if (!params.name) { showToast('Введи имя', 'error'); return; }
+  if (!rowIndex && !params.password) { showToast('Введи пароль', 'error'); return; }
+
+  const action = rowIndex ? 'updateUser' : 'addUser';
+  if (rowIndex) params.rowIndex = rowIndex;
+
+  post({ action, ...params }).then(data => {
+    if (data.success) {
+      showToast('✅ Сохранено!', 'success');
+      closeModal('userModal');
+      loadUsers();
+    } else {
+      showToast('❌ Ошибка', 'error');
+    }
+  });
+}
+
+// ===== КЛИЕНТ =====
+function searchClientOrder() {
+  const num = document.getElementById('clientOrderNum').value.trim();
+  if (!num) { showToast('Введи номер заказа', 'error'); return; }
+
+  get({ action: 'getOrders', role: 'client', username: currentUser.name, orderNumber: num })
+    .then(data => {
+      if (!data.success || !data.orders.length) {
+        document.getElementById('clientResults').innerHTML = '<div class="empty"><div class="empty-icon">🔍</div><p>Заказ не найден</p></div>';
+        return;
+      }
+      const html = data.orders.map(o => `
+        <div class="order-detail">
+          <div class="order-detail-header">
+            <div class="order-detail-num">${o['Номер заказа']}</div>
+            <span class="status status-${(o['Статус'] || '').replace(' ', '_')}">${o['Статус'] || '-'}</span>
+          </div>
+          <div class="detail-grid">
+            <div class="detail-item"><label>Маршрут</label><p>${o['Маршрут'] || '-'}</p></div>
+            <div class="detail-item"><label>Клиент</label><p>${o['ФИО клиента'] || '-'}</p></div>
+            <div class="detail-item"><label>Время выезда</label><p>${String(o['Время выезда'] || '-').replace('T',' ')}</p></div>
+            <div class="detail-item"><label>Время доставки</label><p>${String(o['Время доставки'] || '-').replace('T',' ')}</p></div>
+            <div class="detail-item"><label>Заметки</label><p>${o['Заметки'] || '-'}</p></div>
+          </div>
+        </div>
+      `).join('');
+      document.getElementById('clientResults').innerHTML = html;
+    });
+}
+
+// ===== УТИЛИТЫ =====
+function post(params) {
+  const body = new URLSearchParams(params);
+  return fetch(SCRIPT_URL, { method: 'POST', body }).then(r => r.json());
+}
+
+function get(params) {
+  const qs = new URLSearchParams(params).toString();
+  return fetch(`${SCRIPT_URL}?${qs}`).then(r => r.json()).then(d => {
+    if (d && d.success === false) showToast('❌ ' + (d.error || 'Ошибка сервера'), 'error');
+    return d;
+  }).catch(() => { showToast('❌ Нет связи со скриптом', 'error'); return { success: false }; });
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+function showToast(msg, type = 'info') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast toast-${type} show`;
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// Закрытие модалок по клику вне
+document.querySelectorAll('.modal').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
+});
+
+// Автовход если сессия сохранена
+const saved = localStorage.getItem('dispUser');
+if (saved) {
+  try { currentUser = JSON.parse(saved); startApp(); } catch(e) { localStorage.removeItem('dispUser'); }
+}
+
+// Автообновление каждые 30 сек
+setInterval(() => {
+  if (currentUser && currentUser.role !== 'client') loadOrders();
+}, 30000);
+
+// Регистрация Service Worker для PWA
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./service-worker.js')
+      .then(reg => console.log('Service Worker зарегистрирован', reg))
+      .catch(err => console.log('Service Worker ошибка:', err));
+  });
+}
+
+// Обработка события установки
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  console.log('Приложение может быть установлено');
+});
+
+// Опционально: кнопка установки
+function installApp() {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then((choiceResult) => {
+      if (choiceResult.outcome === 'accepted') {
+        console.log('Приложение установлено');
+      }
+      deferredPrompt = null;
+    });
+  }
+}
+</script>
+</body>
+</html>

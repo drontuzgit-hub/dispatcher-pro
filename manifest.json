@@ -1,0 +1,71 @@
+{
+  "name": "Диспетчер Pro - Управление заказами",
+  "short_name": "Диспетчер Pro",
+  "description": "Система управления заказами с диспетчеризацией в реальном времени",
+  "start_url": "./dispatcher-v4.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0f3460",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%230f3460' width='192' height='192'/><text x='96' y='120' font-size='120' font-weight='bold' fill='white' text-anchor='middle' font-family='Arial'>🚚</text></svg>",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect fill='%230f3460' width='512' height='512'/><text x='256' y='340' font-size='300' font-weight='bold' fill='white' text-anchor='middle' font-family='Arial'>🚚</text></svg>",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "productivity"],
+  "screenshots": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 540 720'><rect fill='%23f0f2f5' width='540' height='720'/><rect fill='%230f3460' width='540' height='60'/><text x='270' y='40' font-size='24' font-weight='bold' fill='white' text-anchor='middle'>Диспетчер Pro</text><text x='270' y='150' font-size='18' fill='%23333' text-anchor='middle'>Управление заказами</text></svg>",
+      "sizes": "540x720",
+      "type": "image/svg+xml",
+      "form_factor": "narrow"
+    }
+  ],
+  "share_target": {
+    "action": "./share",
+    "method": "POST",
+    "enctype": "application/x-www-form-urlencoded",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  },
+  "shortcuts": [
+    {
+      "name": "Заказы",
+      "short_name": "Заказы",
+      "description": "Открыть список заказов",
+      "url": "./dispatcher-v4.html?page=orders",
+      "icons": [
+        {
+          "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'><rect fill='%23667eea' width='96' height='96' rx='12'/><text x='48' y='65' font-size='48' text-anchor='middle'>📋</text></svg>",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Статистика",
+      "short_name": "Статистика",
+      "description": "Статистика по заказам",
+      "url": "./dispatcher-v4.html?page=stats",
+      "icons": [
+        {
+          "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'><rect fill='%2327ae60' width='96' height='96' rx='12'/><text x='48' y='65' font-size='48' text-anchor='middle'>📊</text></svg>",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ],
+  "prefer_related_applications": false
+}
